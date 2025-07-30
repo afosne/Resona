@@ -1,7 +1,7 @@
 import { AIService } from '../services/ai-service.js';
 import { DatabaseService } from '../services/database.js';
 
-export async function handleSubmit(request, env, deviceId) {
+export async function handleSubmitToAi(request, env, deviceId) {
   try {
     // 解析请求体
     const body = await request.json();
@@ -32,12 +32,11 @@ export async function handleSubmit(request, env, deviceId) {
     // 2. 保存用户提交
     const submissionId = await dbService.createSubmission(deviceId, text, emotion);
 
-    // 3. 尝试从情绪池获取共鸣
-    let reflection = await dbService.getRandomReflection(emotion);
+    // 3. 优先尝试 AI 生成共鸣
+    let reflection = null;
     let isGenerated = false;
 
-    // 4. 如果情绪池为空，生成新的共鸣
-    if (!reflection) {
+    try {
       const generatedText = await aiService.generateReflection(emotion, text);
       const reflectionId = await dbService.createReflection(submissionId, generatedText, emotion, true);
       
@@ -49,11 +48,31 @@ export async function handleSubmit(request, env, deviceId) {
         created_at: new Date().toISOString()
       };
       isGenerated = true;
-    }
-
-    // 5. 保存共鸣记录（如果不是生成的）
-    if (!isGenerated) {
-      await dbService.createReflection(submissionId, reflection.text, reflection.emotion, false);
+      console.log('✅ AI 生成共鸣成功:', generatedText);
+    } catch (aiError) {
+      console.error('❌ AI 生成失败，使用预设数据:', aiError);
+      
+      // 4. 如果 AI 生成失败，从情绪池获取预设共鸣
+      reflection = await dbService.getRandomReflection(emotion);
+      
+      if (reflection) {
+        // 保存共鸣记录（如果不是生成的）
+        await dbService.createReflection(submissionId, reflection.text, reflection.emotion, false);
+        console.log('📝 使用预设共鸣:', reflection.text);
+      } else {
+        // 5. 如果情绪池也为空，使用模板生成
+        const templateText = aiService.generateWithTemplates(emotion);
+        const reflectionId = await dbService.createReflection(submissionId, templateText, emotion, false);
+        
+        reflection = {
+          id: reflectionId,
+          text: templateText,
+          emotion: emotion,
+          is_generated: 0,
+          created_at: new Date().toISOString()
+        };
+        console.log('📋 使用模板共鸣:', templateText);
+      }
     }
 
     // 6. 返回响应

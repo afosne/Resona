@@ -1,4 +1,4 @@
-import { handleSubmit } from './handlers/submit.js';
+import { handleSubmitToAi } from './handlers/submit.js';
 import { handleCollect } from './handlers/collect.js';
 import { handleGetCollections } from './handlers/collections.js';
 import { handleDeleteCollection } from './handlers/delete-collection.js';
@@ -61,10 +61,17 @@ export default {
       switch (path) {
         case '/api/v1/submit':
           if (request.method === 'POST') {
-            return await handleSubmit(request, env, deviceIdResult.deviceId);
+            return await handleSubmitToAi(request, env, deviceIdResult.deviceId);
           }
           break;
-
+          
+        // ai 直接返回情绪价值
+        case '/api/v1/submittoai':
+          if (request.method === 'POST') {
+            return await handleSubmitToAi(request, env, deviceIdResult.deviceId);
+          }
+          break;
+       
         case '/api/v1/collect':
           if (request.method === 'POST') {
             return await handleCollect(request, env, deviceIdResult.deviceId);
@@ -92,6 +99,14 @@ export default {
         case '/api/v1/config':
           if (request.method === 'GET') {
             return await handleGetConfig(request, env);
+          }
+          break;
+
+        case '/api/v1/emotions':
+          if (request.method === 'GET') {
+            return await handleGetEmotions(request, env);
+          } else if (request.method === 'POST') {
+            return await handleAddEmotion(request, env);
           }
           break;
 
@@ -189,6 +204,105 @@ async function handleGetConfig(request, env) {
     console.error('获取配置错误:', error);
     return new Response(JSON.stringify({ 
       error: '获取配置时发生错误' 
+    }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+}
+
+// 处理获取情绪列表请求
+async function handleGetEmotions(request, env) {
+  try {
+    const { AIService } = await import('./services/ai-service.js');
+    const aiService = new AIService(env);
+    
+    const emotions = aiService.getAllEmotions();
+    const emotionCount = aiService.getEmotionCount();
+    
+    const response = {
+      success: true,
+      data: {
+        emotions,
+        total_count: emotionCount,
+        base_count: Object.keys(emotions).filter(key => emotions[key].type === 'base').length,
+        dynamic_count: Object.keys(emotions).filter(key => emotions[key].type === 'dynamic').length
+      }
+    };
+
+    return new Response(JSON.stringify(response), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+  } catch (error) {
+    console.error('获取情绪列表错误:', error);
+    return new Response(JSON.stringify({ 
+      error: '获取情绪列表时发生错误' 
+    }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+}
+
+// 处理添加动态情绪请求
+async function handleAddEmotion(request, env) {
+  try {
+    const body = await request.json();
+    const { emotion_key, name, keywords, description, intensity, category } = body;
+
+    // 验证必需字段
+    if (!emotion_key || !name) {
+      return new Response(JSON.stringify({ 
+        error: 'emotion_key 和 name 是必需字段' 
+      }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    const { AIService } = await import('./services/ai-service.js');
+    const aiService = new AIService(env);
+    
+    // 检查情绪是否已存在
+    const existingEmotion = aiService.getEmotionInfo(emotion_key);
+    if (existingEmotion) {
+      return new Response(JSON.stringify({ 
+        error: '情绪已存在' 
+      }), {
+        status: 409,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    // 添加动态情绪
+    aiService.addDynamicEmotion(emotion_key, {
+      name,
+      keywords: keywords || [],
+      description: description || '',
+      intensity: intensity || 'medium',
+      category: category || 'dynamic'
+    });
+
+    const response = {
+      success: true,
+      data: {
+        emotion_key,
+        name,
+        message: '动态情绪添加成功'
+      }
+    };
+
+    return new Response(JSON.stringify(response), {
+      status: 201,
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+  } catch (error) {
+    console.error('添加动态情绪错误:', error);
+    return new Response(JSON.stringify({ 
+      error: '添加动态情绪时发生错误' 
     }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' }

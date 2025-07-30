@@ -4,11 +4,13 @@ CREATE TABLE IF NOT EXISTS submissions (
     device_id TEXT NOT NULL,
     text TEXT NOT NULL,
     emotion TEXT NOT NULL,
-    created_at TEXT NOT NULL,
-    INDEX idx_device_id (device_id),
-    INDEX idx_emotion (emotion),
-    INDEX idx_created_at (created_at)
+    created_at TEXT NOT NULL
 );
+
+-- 为 submissions 表创建索引
+CREATE INDEX IF NOT EXISTS idx_submissions_device_id ON submissions(device_id);
+CREATE INDEX IF NOT EXISTS idx_submissions_emotion ON submissions(emotion);
+CREATE INDEX IF NOT EXISTS idx_submissions_created_at ON submissions(created_at);
 
 -- 创建 reflections 表
 CREATE TABLE IF NOT EXISTS reflections (
@@ -18,12 +20,14 @@ CREATE TABLE IF NOT EXISTS reflections (
     emotion TEXT NOT NULL,
     is_generated INTEGER DEFAULT 0,
     created_at TEXT NOT NULL,
-    FOREIGN KEY (submission_id) REFERENCES submissions(id),
-    INDEX idx_submission_id (submission_id),
-    INDEX idx_emotion (emotion),
-    INDEX idx_is_generated (is_generated),
-    INDEX idx_created_at (created_at)
+    FOREIGN KEY (submission_id) REFERENCES submissions(id)
 );
+
+-- 为 reflections 表创建索引
+CREATE INDEX IF NOT EXISTS idx_reflections_submission_id ON reflections(submission_id);
+CREATE INDEX IF NOT EXISTS idx_reflections_emotion ON reflections(emotion);
+CREATE INDEX IF NOT EXISTS idx_reflections_is_generated ON reflections(is_generated);
+CREATE INDEX IF NOT EXISTS idx_reflections_created_at ON reflections(created_at);
 
 -- 创建 collections 表
 CREATE TABLE IF NOT EXISTS collections (
@@ -32,11 +36,17 @@ CREATE TABLE IF NOT EXISTS collections (
     reflection_id INTEGER NOT NULL,
     created_at TEXT NOT NULL,
     FOREIGN KEY (reflection_id) REFERENCES reflections(id),
-    UNIQUE(device_id, reflection_id),
-    INDEX idx_device_id (device_id),
-    INDEX idx_reflection_id (reflection_id),
-    INDEX idx_created_at (created_at)
+    UNIQUE(device_id, reflection_id)
 );
+
+-- 为 collections 表创建索引
+CREATE INDEX IF NOT EXISTS idx_collections_device_id ON collections(device_id);
+CREATE INDEX IF NOT EXISTS idx_collections_reflection_id ON collections(reflection_id);
+CREATE INDEX IF NOT EXISTS idx_collections_created_at ON collections(created_at);
+
+-- 插入一个测试的 submission 记录
+INSERT INTO submissions (device_id, text, emotion, created_at) VALUES
+('test-device', '测试文本', 'sad', datetime('now'));
 
 -- 插入一些初始的共鸣数据
 INSERT INTO reflections (submission_id, text, emotion, is_generated, created_at) VALUES

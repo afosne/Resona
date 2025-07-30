@@ -1,3 +1,5 @@
+import { EmotionAnalyzer } from '../utils/emotions.js';
+
 export class AIService {
   constructor(env) {
     this.env = env;
@@ -10,149 +12,60 @@ export class AIService {
     this.openaiModel = env.OPENAI_MODEL || 'gpt-3.5-turbo';
     this.geminiModel = env.GEMINI_MODEL || 'gemini-pro';
     
-    this.emotionTags = env.EMOTION_TAGS?.split(',') || [
-      'sad', 'lonely', 'happy', 'confused', 'relieved', 'angry', 'missing', 'yearning'
-    ];
+    // 使用新的情绪分析器
+    this.emotionAnalyzer = new EmotionAnalyzer(env);
   }
 
   async analyzeEmotion(text) {
-    try {
-      // 优先使用 OpenAI，如果没有则使用 Gemini
-      if (this.openaiApiKey) {
-        return await this.analyzeWithOpenAI(text);
-      } else if (this.geminiApiKey) {
-        return await this.analyzeWithGemini(text);
-      } else {
-        // 如果没有 API 密钥，使用简单的关键词匹配
-        return this.analyzeWithKeywords(text);
-      }
-    } catch (error) {
-      console.error('情绪分析失败:', error);
-      // 降级到关键词匹配
-      return this.analyzeWithKeywords(text);
-    }
-  }
-
-  async analyzeWithOpenAI(text) {
-    const response = await fetch(`${this.openaiApiUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${this.openaiApiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: this.openaiModel,
-        messages: [
-          {
-            role: 'system',
-            content: `你是一个情绪分析专家。请分析用户输入的文本，并从以下情绪标签中选择最匹配的一个：${this.emotionTags.join(', ')}。只返回情绪标签，不要其他内容。`
-          },
-          {
-            role: 'user',
-            content: text
-          }
-        ],
-        max_tokens: 10,
-        temperature: 0.1
-      })
-    });
-
-    if (!response.ok) {
-      throw new Error(`OpenAI API 错误: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const emotion = data.choices[0].message.content.trim().toLowerCase();
-    
-    // 验证返回的情绪标签是否在预设列表中
-    if (this.emotionTags.includes(emotion)) {
-      return emotion;
-    } else {
-      // 如果返回的情绪不在预设列表中，使用默认值
-      return 'confused';
-    }
-  }
-
-  async analyzeWithGemini(text) {
-    const response = await fetch(`${this.geminiApiUrl}/models/${this.geminiModel}:generateContent?key=${this.geminiApiKey}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{
-            text: `分析以下文本的情绪，从这些标签中选择一个：${this.emotionTags.join(', ')}。只返回标签名称：\n\n${text}`
-          }]
-        }]
-      })
-    });
-
-    if (!response.ok) {
-      throw new Error(`Gemini API 错误: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const emotion = data.candidates[0].content.parts[0].text.trim().toLowerCase();
-    
-    if (this.emotionTags.includes(emotion)) {
-      return emotion;
-    } else {
-      return 'confused';
-    }
-  }
-
-  analyzeWithKeywords(text) {
-    const lowerText = text.toLowerCase();
-    
-    // 简单的关键词匹配规则
-    const keywordMap = {
-      'sad': ['难过', '悲伤', '伤心', '痛苦', '沮丧', '失落', 'sad', 'unhappy'],
-      'lonely': ['孤独', '寂寞', '孤单', 'alone', 'lonely', 'isolated'],
-      'happy': ['开心', '快乐', '高兴', '兴奋', '喜悦', 'happy', 'joyful'],
-      'confused': ['困惑', '迷茫', '不解', 'confused', 'puzzled', 'uncertain'],
-      'relieved': ['释然', '轻松', '解脱', 'relieved', 'relaxed'],
-      'angry': ['愤怒', '生气', '恼火', 'angry', 'mad', 'furious'],
-      'missing': ['想念', '思念', 'miss', 'missing', 'longing'],
-      'yearning': ['渴望', '向往', 'yearning', 'desire', 'wish']
-    };
-
-    for (const [emotion, keywords] of Object.entries(keywordMap)) {
-      if (keywords.some(keyword => lowerText.includes(keyword))) {
-        return emotion;
-      }
-    }
-
-    // 默认返回困惑
-    return 'confused';
+    return await this.emotionAnalyzer.analyzeEmotion(text);
   }
 
   async generateReflection(emotion, originalText) {
     try {
+      // 1. 尝试AI生成
       if (this.openaiApiKey) {
-        return await this.generateWithOpenAI(emotion, originalText);
+        try {
+          const result = await this.generateWithOpenAI(emotion, originalText);
+          console.log('✅ OpenAI 生成成功');
+          return result;
+        } catch (error) {
+          console.error('❌ OpenAI 生成失败:', error.message);
+          
+          // 尝试 Gemini
+          if (this.geminiApiKey) {
+            try {
+              const result = await this.generateWithGemini(emotion, originalText);
+              console.log('✅ Gemini 生成成功');
+              return result;
+            } catch (geminiError) {
+              console.error('❌ Gemini 生成也失败:', geminiError.message);
+              return await this.generateWithAITemplate(emotion, originalText);
+            }
+          } else {
+            return await this.generateWithAITemplate(emotion, originalText);
+          }
+        }
       } else if (this.geminiApiKey) {
-        return await this.generateWithGemini(emotion, originalText);
+        try {
+          const result = await this.generateWithGemini(emotion, originalText);
+          console.log('✅ Gemini 生成成功');
+          return result;
+        } catch (error) {
+          console.error('❌ Gemini 生成失败:', error.message);
+          return await this.generateWithAITemplate(emotion, originalText);
+        }
       } else {
-        return this.generateWithTemplates(emotion);
+        return await this.generateWithAITemplate(emotion, originalText);
       }
     } catch (error) {
-      console.error('生成共鸣句子失败:', error);
-      return this.generateWithTemplates(emotion);
+      console.error('生成共鸣失败，使用基础模板:', error);
+      return this.generateWithBasicTemplate(emotion);
     }
   }
 
   async generateWithOpenAI(emotion, originalText) {
-    const emotionNames = {
-      'sad': '悲伤',
-      'lonely': '孤独',
-      'happy': '快乐',
-      'confused': '困惑',
-      'relieved': '释然',
-      'angry': '愤怒',
-      'missing': '想念',
-      'yearning': '渴望'
-    };
+    const emotionInfo = this.emotionAnalyzer.getEmotionInfo(emotion);
+    const emotionName = emotionInfo ? emotionInfo.name : emotion;
 
     const response = await fetch(`${this.openaiApiUrl}/chat/completions`, {
       method: 'POST',
@@ -165,20 +78,20 @@ export class AIService {
         messages: [
           {
             role: 'system',
-            content: `你是一个温暖的共鸣者。用户表达了${emotionNames[emotion]}的情绪，请生成一句简短而温暖的共鸣回应（不超过20字），让用户感受到被理解和支持。`
+            content: `你是一个温暖的共鸣者。用户表达了${emotionName}的情绪，请生成一段温暖而深刻的共鸣回应（50-200字），让用户感受到被理解和支持。回应要真诚、温暖、有共鸣感，可以包含安慰、鼓励或理解的话语。`
           },
           {
             role: 'user',
             content: originalText
           }
         ],
-        max_tokens: 50,
+        max_tokens: 300,
         temperature: 0.8
       })
     });
 
     if (!response.ok) {
-      throw new Error(`OpenAI API 错误: ${response.status}`);
+      throw new Error(`OpenAI API 错误: ${response.status} - ${response.statusText}`);
     }
 
     const data = await response.json();
@@ -186,16 +99,8 @@ export class AIService {
   }
 
   async generateWithGemini(emotion, originalText) {
-    const emotionNames = {
-      'sad': '悲伤',
-      'lonely': '孤独',
-      'happy': '快乐',
-      'confused': '困惑',
-      'relieved': '释然',
-      'angry': '愤怒',
-      'missing': '想念',
-      'yearning': '渴望'
-    };
+    const emotionInfo = this.emotionAnalyzer.getEmotionInfo(emotion);
+    const emotionName = emotionInfo ? emotionInfo.name : emotion;
 
     const response = await fetch(`${this.geminiApiUrl}/models/${this.geminiModel}:generateContent?key=${this.geminiApiKey}`, {
       method: 'POST',
@@ -205,7 +110,111 @@ export class AIService {
       body: JSON.stringify({
         contents: [{
           parts: [{
-            text: `用户表达了${emotionNames[emotion]}的情绪："${originalText}"。请生成一句简短而温暖的共鸣回应（不超过20字），让用户感受到被理解和支持。`
+            text: `用户表达了${emotionName}的情绪："${originalText}"。请生成一段温暖而深刻的共鸣回应（50-200字），让用户感受到被理解和支持。回应要真诚、温暖、有共鸣感，可以包含安慰、鼓励或理解的话语。`
+          }]
+        }]
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Gemini API 错误: ${response.status} - ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data.candidates[0].content.parts[0].text.trim();
+  }
+
+  // AI生成模板（当直接生成失败时的备用方案）
+  async generateWithAITemplate(emotion, originalText) {
+    try {
+      // 使用AI生成多个模板选项
+      const templates = await this.generateEmotionTemplates(emotion);
+      if (templates && templates.length > 0) {
+        // 随机选择一个模板
+        const randomIndex = Math.floor(Math.random() * templates.length);
+        return templates[randomIndex];
+      }
+    } catch (error) {
+      console.error('AI模板生成失败:', error);
+    }
+    
+    // 如果AI模板生成失败，使用基础模板
+    return this.generateWithBasicTemplate(emotion);
+  }
+
+  // 生成情绪模板
+  async generateEmotionTemplates(emotion) {
+    try {
+      const emotionInfo = this.emotionAnalyzer.getEmotionInfo(emotion);
+      const emotionName = emotionInfo ? emotionInfo.name : emotion;
+
+      if (this.openaiApiKey) {
+        return await this.generateTemplatesWithOpenAI(emotionName);
+      } else if (this.geminiApiKey) {
+        return await this.generateTemplatesWithGemini(emotionName);
+      }
+    } catch (error) {
+      console.error('生成情绪模板失败:', error);
+      return null;
+    }
+  }
+
+  async generateTemplatesWithOpenAI(emotionName) {
+    const response = await fetch(`${this.openaiApiUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.openaiApiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: this.openaiModel,
+        messages: [
+          {
+            role: 'system',
+            content: `你是一个情绪共鸣专家。请为"${emotionName}"这种情绪生成3段温暖、真诚的共鸣回应（每段50-200字），让用户感受到被理解和支持。请以JSON数组格式返回，例如：["回应1", "回应2", "回应3"]`
+          }
+        ],
+        max_tokens: 600,
+        temperature: 0.7
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`OpenAI API 错误: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const content = data.choices[0].message.content.trim();
+    
+    try {
+      // 尝试解析JSON
+      const templates = JSON.parse(content);
+      if (Array.isArray(templates)) {
+        return templates;
+      }
+    } catch (parseError) {
+      console.error('解析模板JSON失败:', parseError);
+    }
+    
+    // 如果JSON解析失败，尝试提取引号内的内容
+    const matches = content.match(/"([^"]+)"/g);
+    if (matches) {
+      return matches.map(match => match.replace(/"/g, ''));
+    }
+    
+    return null;
+  }
+
+  async generateTemplatesWithGemini(emotionName) {
+    const response = await fetch(`${this.geminiApiUrl}/models/${this.geminiModel}:generateContent?key=${this.geminiApiKey}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{
+            text: `请为"${emotionName}"这种情绪生成3段温暖、真诚的共鸣回应（每段50-200字），让用户感受到被理解和支持。请以JSON数组格式返回，例如：["回应1", "回应2", "回应3"]`
           }]
         }]
       })
@@ -216,55 +225,62 @@ export class AIService {
     }
 
     const data = await response.json();
-    return data.candidates[0].content.parts[0].text.trim();
+    const content = data.candidates[0].content.parts[0].text.trim();
+    
+    try {
+      const templates = JSON.parse(content);
+      if (Array.isArray(templates)) {
+        return templates;
+      }
+    } catch (parseError) {
+      console.error('解析模板JSON失败:', parseError);
+    }
+    
+    const matches = content.match(/"([^"]+)"/g);
+    if (matches) {
+      return matches.map(match => match.replace(/"/g, ''));
+    }
+    
+    return null;
   }
 
-  generateWithTemplates(emotion) {
-    const templates = {
-      'sad': [
-        '我理解你的难过，一切都会好起来的',
-        '悲伤的时候，记得给自己一个拥抱',
-        '你的感受是真实的，我在这里陪着你'
-      ],
-      'lonely': [
-        '孤独的时候，星星也在陪伴着你',
-        '你并不孤单，我懂你的感受',
-        '有时候孤独也是一种力量'
-      ],
-      'happy': [
-        '你的快乐感染了我，真好',
-        '保持这份美好，世界因你而明亮',
-        '快乐是最珍贵的礼物'
-      ],
-      'confused': [
-        '迷茫是成长的必经之路',
-        '慢慢来，答案会自己出现的',
-        '困惑的时候，给自己一些时间'
-      ],
-      'relieved': [
-        '释然的感觉真好，你做得对',
-        '放下负担，轻装前行',
-        '内心的平静是最美的风景'
-      ],
-      'angry': [
-        '愤怒是正常的，但别让它伤害自己',
-        '深呼吸，让情绪慢慢平静',
-        '你的愤怒我理解，但请善待自己'
-      ],
-      'missing': [
-        '想念是爱的另一种表达',
-        '那些美好的回忆永远在心里',
-        '思念让爱更加深刻'
-      ],
-      'yearning': [
-        '渴望是前进的动力',
-        '你的梦想值得被追逐',
-        '内心的渴望指引着方向'
-      ]
-    };
+  // 基础模板（最后的备用方案）
+  generateWithBasicTemplate(emotion) {
+    const emotionInfo = this.emotionAnalyzer.getEmotionInfo(emotion);
+    const emotionName = emotionInfo ? emotionInfo.name : '这种';
+    
+    const basicTemplates = [
+      `我理解你的${emotionName}，这种感受是真实而深刻的。每个人都会经历这样的时刻，你并不孤单。请相信，这种情绪是暂时的，就像天空中的云朵，终会散去。给自己一些时间和耐心，一切都会慢慢好起来的。我在这里陪着你，你的感受很重要，值得被倾听和理解。`,
+      `你的${emotionName}我感同身受，这种情绪确实让人感到沉重。但请记住，情绪就像潮水，有涨有落。现在的你正在经历低谷，但这并不意味着永远。你的内心比想象中更强大，你有能力度过这个难关。我在这里支持你，相信你能够找到内心的平静。`,
+      `${emotionName}的时候，记得给自己一些时间和空间。这种情绪需要被接纳，而不是被压抑。你可以尝试深呼吸，或者做一些让自己感到舒适的事情。记住，你不需要独自承担这一切，寻求帮助是勇敢的表现。我相信你有足够的力量去面对，一切都会慢慢变好。`,
+      `你的感受是真实的，我完全理解你的${emotionName}。这种情绪可能让你感到无助，但请相信，这只是人生旅程中的一段路。每个人都有脆弱的时候，这很正常。你的情绪值得被尊重，你的痛苦值得被理解。我在这里倾听你，陪伴你，相信你能够找到内心的力量。`,
+      `我在这里倾听你，你的${emotionName}很重要，值得被认真对待。这种情绪可能让你感到孤独，但请记住，你并不孤单。每个人都会经历类似的感受，这是人类情感的一部分。给自己一些温柔，就像对待一个受伤的朋友一样。我相信你有能力度过这个困难时期，一切都会好起来的。`,
+      `你并不孤单，我懂你的${emotionName}。这种感受可能让你觉得没有人理解，但我想告诉你，你的情绪是合理的，你的痛苦是真实的。每个人都有自己的脆弱时刻，这并不代表软弱。请相信，这种情绪会过去，就像所有的困难一样。我在这里支持你，陪伴你度过这个时刻。`,
+      `你的${emotionName}是正常的，给自己一些耐心和宽容。这种情绪可能让你感到困惑，但请记住，情绪本身就是复杂的。你不需要立即解决所有问题，有时候最好的方式就是允许自己感受。我相信你有足够的内在力量，一切都会慢慢变得清晰。我理解你的心情，一切都会慢慢变好。`,
+      `我理解你的心情，这种${emotionName}确实让人感到沉重。但请相信，这只是暂时的状态，就像所有的情绪一样，它们会来也会走。你不需要独自面对这一切，寻求支持是明智的选择。我相信你有能力度过这个困难时期，你的内心比想象中更坚强。一切都会慢慢变好，我在这里陪着你。`
+    ];
+    
+    const randomIndex = Math.floor(Math.random() * basicTemplates.length);
+    return basicTemplates[randomIndex];
+  }
 
-    const emotionTemplates = templates[emotion] || templates['confused'];
-    const randomIndex = Math.floor(Math.random() * emotionTemplates.length);
-    return emotionTemplates[randomIndex];
+  // 动态添加情绪
+  addDynamicEmotion(emotionKey, emotionConfig) {
+    this.emotionAnalyzer.addDynamicEmotion(emotionKey, emotionConfig);
+  }
+
+  // 获取所有情绪
+  getAllEmotions() {
+    return this.emotionAnalyzer.getAllEmotions();
+  }
+
+  // 获取情绪信息
+  getEmotionInfo(emotionKey) {
+    return this.emotionAnalyzer.getEmotionInfo(emotionKey);
+  }
+
+  // 获取情绪总数
+  getEmotionCount() {
+    return this.emotionAnalyzer.getEmotionCount();
   }
 } 

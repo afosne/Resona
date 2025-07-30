@@ -54,7 +54,7 @@ export function getSwaggerJSON() {
       "version": "1.0.0",
       "contact": {
         "name": "Resona Team",
-        "email": "support@resona.com"
+        "email": "7920a9c2@gmail.com"
       }
     },
     "servers": [
@@ -79,6 +79,10 @@ export function getSwaggerJSON() {
       {
         "name": "系统",
         "description": "系统状态和配置接口"
+      },
+      {
+        "name": "情绪管理",
+        "description": "情绪类型管理相关接口"
       }
     ],
     "paths": {
@@ -86,7 +90,7 @@ export function getSwaggerJSON() {
         "post": {
           "tags": ["共鸣"],
           "summary": "提交句子获取共鸣",
-          "description": "用户提交一句话，系统分析情绪并返回共鸣回应",
+          "description": "用户提交一句话，系统分析情绪并返回共鸣回应（50-200字）",
           "requestBody": {
             "required": true,
             "content": {
@@ -637,6 +641,226 @@ export function getSwaggerJSON() {
                         }
                       }
                     }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "post": {
+          "tags": ["系统"],
+          "summary": "更新配置",
+          "description": "更新系统的配置信息",
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["config"],
+                  "properties": {
+                    "config": {
+                      "type": "object",
+                      "description": "要更新的配置对象",
+                      "example": {
+                        "valid": true,
+                        "errors": [],
+                        "warnings": []
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "配置更新成功",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "success": {
+                        "type": "boolean",
+                        "example": true
+                      },
+                      "data": {
+                        "type": "object",
+                        "properties": {
+                          "message": {
+                            "type": "string",
+                            "example": "配置更新成功"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "400": {
+              "description": "请求参数错误",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/v1/emotions": {
+        "get": {
+          "tags": ["情绪管理"],
+          "summary": "获取情绪列表",
+          "description": "获取所有可用的情绪类型，包括基础情绪和动态情绪",
+          "responses": {
+            "200": {
+              "description": "成功获取情绪列表",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "success": {
+                        "type": "boolean",
+                        "example": true
+                      },
+                      "data": {
+                        "type": "object",
+                        "properties": {
+                          "emotions": {
+                            "type": "object",
+                            "description": "情绪字典，键为情绪标识，值为情绪信息"
+                          },
+                          "total_count": {
+                            "type": "integer",
+                            "description": "情绪总数",
+                            "example": 50
+                          },
+                          "base_count": {
+                            "type": "integer",
+                            "description": "基础情绪数量",
+                            "example": 50
+                          },
+                          "dynamic_count": {
+                            "type": "integer",
+                            "description": "动态情绪数量",
+                            "example": 0
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "post": {
+          "tags": ["情绪管理"],
+          "summary": "添加动态情绪",
+          "description": "动态添加新的情绪类型",
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["emotion_key", "name"],
+                  "properties": {
+                    "emotion_key": {
+                      "type": "string",
+                      "description": "情绪标识符",
+                      "example": "melancholy"
+                    },
+                    "name": {
+                      "type": "string",
+                      "description": "情绪中文名称",
+                      "example": "忧郁"
+                    },
+                    "keywords": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "关键词列表",
+                      "example": ["忧郁", "伤感", "低沉"]
+                    },
+                    "description": {
+                      "type": "string",
+                      "description": "情绪描述",
+                      "example": "一种深沉的悲伤情绪"
+                    },
+                    "intensity": {
+                      "type": "string",
+                      "enum": ["low", "medium", "high"],
+                      "description": "情绪强度",
+                      "example": "medium"
+                    },
+                    "category": {
+                      "type": "string",
+                      "description": "情绪分类",
+                      "example": "negative"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "201": {
+              "description": "动态情绪添加成功",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "success": {
+                        "type": "boolean",
+                        "example": true
+                      },
+                      "data": {
+                        "type": "object",
+                        "properties": {
+                          "emotion_key": {
+                            "type": "string",
+                            "example": "melancholy"
+                          },
+                          "name": {
+                            "type": "string",
+                            "example": "忧郁"
+                          },
+                          "message": {
+                            "type": "string",
+                            "example": "动态情绪添加成功"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "400": {
+              "description": "请求参数错误",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            },
+            "409": {
+              "description": "情绪已存在",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
                   }
                 }
               }
