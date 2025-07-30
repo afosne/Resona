@@ -1,4 +1,4 @@
-# Resona 共鸣交换所后端
+# Resona 共鸣交换所
 
 一个匿名情绪共鸣平台的后端服务，基于 Cloudflare Workers 和 D1 数据库构建。
 
