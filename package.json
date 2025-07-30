@@ -1,0 +1,29 @@
+{
+  "name": "resona-backend",
+  "version": "1.0.0",
+  "description": "Resona 共鸣交换所后端 - 匿名情绪共鸣平台",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "build": "echo 'No build step required for Cloudflare Workers'",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "db:migrate": "wrangler d1 migrations apply resona-db",
+    "db:create": "wrangler d1 create resona-db",
+    "db:seed": "wrangler d1 execute resona-db --file=./migrations/seed.sql"
+  },
+  "dependencies": {
+    "@cloudflare/workers-types": "^4.20231218.0",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "wrangler": "^3.22.1",
+    "jest": "^29.7.0"
+  },
+  "keywords": ["cloudflare-workers", "nlp", "emotion", "anonymous"],
+  "author": "Resona Team",
+  "license": "MIT"
+} 
