@@ -1,4 +1,4 @@
-# Resona 共鸣交换所后端
+”# Resona 共鸣交换所后端
 
 一个匿名情绪共鸣平台的后端服务，基于 Cloudflare Workers 和 D1 数据库构建。
 
@@ -88,20 +88,6 @@ npm run deploy
 - **区域优化**: 选择更近的服务器
 - **企业部署**: 使用企业内部的 AI 服务
 
-#### 配置示例
-
-```bash
-# 使用代理服务器
-OPENAI_API_URL=https://your-proxy.com/openai/v1
-GEMINI_API_URL=https://your-proxy.com/gemini/v1beta
-
-# 使用自建服务
-OPENAI_API_URL=https://your-ai-server.com/api/openai
-GEMINI_API_URL=https://your-ai-server.com/api/gemini
-
-# 使用企业服务
-OPENAI_API_URL=https://ai.company.com/openai/v1
-```
 
 #### 兼容性要求
 
