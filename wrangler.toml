@@ -11,11 +11,11 @@ name = "resona-backend-staging"
 [[d1_databases]]
 binding = "DB"
 database_name = "resona-db"
-database_id = "your-database-id-here"
+database_id = "69b75a31-d875-431f-b978-fed0b4645fc4"
 
 [[kv_namespaces]]
 binding = "EMOTION_POOL"
-id = "your-kv-namespace-id-here"
+id = "b0a7141c2e6a43b6abc2fd7bc0c320d2"
 
 [vars]
 ENVIRONMENT = "development"

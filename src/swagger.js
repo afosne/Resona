@@ -8,18 +8,9 @@ export function getSwaggerHTML() {
     <title>Resona API 文档</title>
     <link rel="stylesheet" type="text/css" href="https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui.css" />
     <style>
-        html {
-            box-sizing: border-box;
-            overflow: -moz-scrollbars-vertical;
-            overflow-y: scroll;
-        }
-        *, *:before, *:after {
-            box-sizing: inherit;
-        }
-        body {
-            margin:0;
-            background: #fafafa;
-        }
+        html { box-sizing: border-box; overflow: -moz-scrollbars-vertical; overflow-y: scroll; }
+        *, *:before, *:after { box-sizing: inherit; }
+        body { margin:0; background: #fafafa; }
     </style>
 </head>
 <body>
@@ -32,13 +23,8 @@ export function getSwaggerHTML() {
                 url: '/api/v1/swagger.json',
                 dom_id: '#swagger-ui',
                 deepLinking: true,
-                presets: [
-                    SwaggerUIBundle.presets.apis,
-                    SwaggerUIStandalonePreset
-                ],
-                plugins: [
-                    SwaggerUIBundle.plugins.DownloadUrl
-                ],
+                presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
+                plugins: [SwaggerUIBundle.plugins.DownloadUrl],
                 layout: "StandaloneLayout",
                 docExpansion: "list",
                 filter: true,
@@ -46,7 +32,6 @@ export function getSwaggerHTML() {
                 showCommonExtensions: true,
                 tryItOutEnabled: true,
                 requestInterceptor: function(request) {
-                    // 自动添加设备 ID Cookie
                     if (!request.headers['Cookie']) {
                         request.headers['Cookie'] = 'device_id=test-device-id-' + Date.now();
                     }

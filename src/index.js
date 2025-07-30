@@ -6,6 +6,7 @@ import { rateLimiter } from './middleware/rate-limiter.js';
 import { deviceIdMiddleware } from './middleware/device-id.js';
 import { corsMiddleware } from './middleware/cors.js';
 import { logAIConfig } from './utils/config-validator.js';
+import { getSwaggerHTML, getSwaggerJSON } from './swagger.js';
 
 export default {
   async fetch(request, env, ctx) {
@@ -17,6 +18,21 @@ export default {
     const path = url.pathname;
 
     try {
+      // Swagger UI 路由
+      if (path === '/docs' || path === '/api-docs') {
+        return new Response(getSwaggerHTML(), {
+          status: 200,
+          headers: { 'Content-Type': 'text/html' }
+        });
+      }
+
+      if (path === '/api/v1/swagger.json') {
+        return new Response(JSON.stringify(getSwaggerJSON()), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
       // 应用设备 ID 中间件
       const deviceIdResult = await deviceIdMiddleware(request, env);
       if (deviceIdResult.error) {
