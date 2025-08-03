@@ -65,13 +65,6 @@ export default {
           }
           break;
           
-        // ai 直接返回情绪价值
-        case '/api/v1/submittoai':
-          if (request.method === 'POST') {
-            return await handleSubmitToAi(request, env, deviceIdResult.deviceId);
-          }
-          break;
-       
         case '/api/v1/collect':
           if (request.method === 'POST') {
             return await handleCollect(request, env, deviceIdResult.deviceId);
